@@ -1,0 +1,16 @@
+{
+  "name": "primo-lambda-generator",
+  "version": "0.1.0",
+  "description": "A Lambda function that is used to generate other Lambda functions.",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+  },
+  "dependencies": {
+    "cfn-response": "1.0.1",
+    "jszip": "2.5.0"
+  },
+  "devDependencies": {
+    "aws-sdk": "2.2.35"
+  }
+}

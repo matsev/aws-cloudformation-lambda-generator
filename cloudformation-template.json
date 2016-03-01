@@ -1,0 +1,119 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description" : "A stack that creates a Lambda function with a predefined name",
+
+  "Parameters" : {
+    "ArtifactsBucket" : {
+      "Description" : "Name of the S3 bucket to fetch source code from",
+      "Type" : "String",
+      "ConstraintDescription" : "must be an existing S3 bucket.",
+      "Default" : "[name of the S3 bucket]"
+    },
+
+    "LambdaGeneratorKey" : {
+      "Description" : "S3 key of the .zip file with the Lambda generator",
+      "Type" : "String",
+      "ConstraintDescription" : "must be an existing Lambda .zip file.",
+      "Default" : "[name of the S3 key]"
+    }
+  },
+
+  "Resources": {
+    "LambdaGenerator" : {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": [
+        "LogPolicy"
+      ],
+      "Properties": {
+        "Code": {
+          "S3Bucket": { "Ref" : "ArtifactsBucket" },
+          "S3Key": { "Ref" : "LambdaGeneratorKey" }
+        },
+        "Description" : "Lambda that generates other Lambda functions",
+        "Handler": "index.handler",
+        "Runtime": "nodejs",
+        "Timeout": 10,
+        "Role": { "Fn::GetAtt": ["LambdaGeneratorRole", "Arn"]}
+      }
+    },
+
+    "AlphaLambdaGenerator": {
+      "Type": "Custom::AlphaLambdaGenerator",
+      "Properties": {
+        "ServiceToken" : {"Fn::GetAtt": ["LambdaGenerator", "Arn"]},
+        "Lambda": {
+          "FunctionName": "AlphaLambda",
+          "Role": { "Fn::GetAtt": ["LambdaExecutionRole", "Arn"]}
+        }
+      }
+    },
+
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"Service": ["lambda.amazonaws.com"]},
+            "Action": ["sts:AssumeRole"]
+          }]
+        }
+      }
+    },
+
+    "LambdaGeneratorRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Principal": {"Service": ["lambda.amazonaws.com"]},
+            "Action": ["sts:AssumeRole"]
+          }]
+        },
+        "Policies": [{
+          "PolicyName": "LambdaGeneratorPolicy",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [
+                "lambda:*",
+                "iam:PassRole"
+              ],
+              "Resource": "*"
+            }]
+          }
+        }]
+      }
+    },
+
+    "LogPolicy": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyName": "LogPolicy",
+        "PolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Action": ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
+            "Resource": "arn:aws:logs:*:*:*"
+          }]
+        },
+        "Roles": [
+          {"Ref": "LambdaExecutionRole"},
+          {"Ref": "LambdaGeneratorRole"}
+        ]
+      }
+    }
+  },
+
+  "Outputs" : {
+    "AlphaLambdaArn" : {
+      "Description" : "Arn of the AlphaLambda",
+      "Value" : { "Fn::GetAtt" : ["AlphaLambdaGenerator", "FunctionArn"]}
+    }
+  }
+}
